@@ -34,17 +34,19 @@ def generate_jd(prompt: str) -> str:
 
         Your output MUST be robust but brief, avoiding bloated text. 
 
-        STRICT FORMATTING INSTRUCTIONS (Keep sections short and to the point):
-        1. **Job Title**: The exact role title.
-        2. **Company**: Infer from the prompt if provided, otherwise leave a placeholder like `[Company Name]`.
-        3. **Location**: Infer from the prompt (e.g., Remote, On-site, Hybrid).
-        4. **About Us**: A brief 1-paragraph summary of the company.
-        5. **The Role**: A brief 1-paragraph summary of the core mission.
-        6. **Key Responsibilities**: Provide exactly 4-5 concise bullet points detailing tasks.
-        7. **Requirements**: Provide exactly 4-5 concise bullet points covering core skills and education.
-        8. **Benefits**: List 3-4 top perks.
+        STRICT FORMATTING INSTRUCTIONS (Keep sections short and visually separated):
+        1. **Job Title**: The exact role title formatted as an H1 heading (e.g. `# GenAI Intern`).
+        2. **Company**: Must be formatted exactly as `**Company:** [Company Name]` on a new line.
+        3. **Location**: Must be formatted exactly as `**Location:** [Location]` on a new line.
+        4. **Spacing**: ALWAYS leave a blank line after Company and Location.
+        5. **About Us**: Use `### About Us` as a heading. Then a blank line, then a 1-paragraph summary.
+        6. **The Role**: Use `### The Role` as a heading. Then a blank line, then a 1-paragraph summary.
+        7. **Key Responsibilities**: Use `### Key Responsibilities` as a heading. Provide exactly 4-5 tasks using actual markdown bullet points (`- `) on separate lines.
+        8. **Requirements**: Use `### Requirements` as a heading. Provide exactly 4-5 skills using actual markdown bullet points (`- `) on separate lines.
+        9. **Benefits**: Use `### Benefits` as a heading. List 3-4 top perks using actual markdown bullet points (`- `) on separate lines.
+        10. **How to Apply**: Use `### How to Apply` as a heading. Add a brief instruction for the candidate to submit their resume, followed by a realistic looking email address (e.g. `careers@[company].com`).
 
-        CRITICAL: The 'Company' and 'Location' MUST be placed immediately under the 'Job Title'. Use Markdown headings (## and ###). Keep the entire description under 400 words.
+        CRITICAL: Never output large blocks of text. Ensure there is a blank line between every single heading and its content, and between every section. Do NOT use headings for Company and Location.
         ''',
         expected_output="A high-quality, concise Markdown string strictly following the requested structure without unnecessary fluff.",
         agent=jd_agent

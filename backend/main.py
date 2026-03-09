@@ -30,6 +30,17 @@ async def api_generate_jd(request: JobPromptRequest, db: Session = Depends(get_d
     try:
         jd_content = generate_jd(request.prompt)
         
+        # Strip markdown code blocks if the LLM wrapped it
+        jd_clean = jd_content.strip()
+        if jd_clean.startswith("```markdown"):
+            jd_clean = jd_clean[11:].strip()
+        elif jd_clean.startswith("```"):
+            jd_clean = jd_clean[3:].strip()
+        if jd_clean.endswith("```"):
+            jd_clean = jd_clean[:-3].strip()
+        
+        jd_content = jd_clean
+        
         # Try to extract the title by looking for "**Job Title**:" or similar heading structures
         title = "Generated Job Description"
         

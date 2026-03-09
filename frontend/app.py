@@ -33,10 +33,11 @@ st.markdown("""
     .stButton>button[kind="primary"] {
         background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
         color: white !important;
-        font-weight: 600 !important;
+        font-weight: 500 !important;
         border: none !important;
-        border-radius: 8px !important;
-        padding: 0.5rem 1.5rem !important;
+        border-radius: 6px !important;
+        padding: 0.3rem 0.8rem !important;
+        font-size: 14px !important;
         transition: all 0.2s ease-in-out;
         box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4) !important;
     }
@@ -71,8 +72,10 @@ st.markdown("""
     .evaluation-card {
         padding: 1.5rem;
         border-radius: 12px;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        border: 1px solid #374151;
+        background: #1e1e1e;
+        color: #f3f4f6;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
         margin-top: 1rem;
     }
 </style>
@@ -135,7 +138,7 @@ st.markdown("---")
 
 # --- Page 1: Generate Job Description ---
 if app_mode == "1. Generate JD":
-    st.header("✨ Step 1: AI Job Description Generator")
+    st.header("✨ AI Job Description Generator")
     st.markdown("Provide a basic prompt and let our **Expert HR Agent** write a detailed, formatted job description for you.")
     
     job_prompt = st.text_area(
@@ -166,13 +169,29 @@ if app_mode == "1. Generate JD":
             st.warning("Please enter a prompt first.")
 
     if st.session_state.jd_text:
-        with st.expander("📄 View Last Generated Job Description", expanded=True):
-            st.markdown(st.session_state.jd_text)
-
-
-# --- Page 2: Evaluate Candidate Resume ---
+        st.markdown("### 📄 Generated Job Description")
+        
+        # Convert markdown to HTML for proper premium formatting
+        import markdown
+        # Clean up any residual markdown code block wrappers
+        jd_clean = st.session_state.jd_text.strip()
+        if jd_clean.startswith("```markdown"):
+            jd_clean = jd_clean[11:].strip()
+        elif jd_clean.startswith("```"):
+            jd_clean = jd_clean[3:].strip()
+        if jd_clean.endswith("```"):
+            jd_clean = jd_clean[:-3].strip()
+            
+        html_content = markdown.markdown(jd_clean)
+        
+        # Display in a beautiful document-like container
+        st.markdown(f"""
+        <div style="background: #1e1e1e; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); color: #f3f4f6; font-family: 'Inter', sans-serif; line-height: 1.6; margin-top: 1rem; border: 1px solid #374151;">
+            {html_content}
+        </div>
+        """, unsafe_allow_html=True)
 elif app_mode == "2. Evaluate CV":
-    st.header("🎯 Step 2: AI Profile Evaluation")
+    st.header("🎯 AI Profile Evaluation")
     st.markdown("Upload a candidate's CV. Our **Senior Technical Recruiter** and **HR Coordinator** agents will evaluate it against the active Job Description and draft a response.")
     
     if not saved_jds:
@@ -184,7 +203,21 @@ elif app_mode == "2. Evaluate CV":
         selected_jd_content = jd_options[selected_jd_title]
 
         with st.expander("👁️ View Selected Job Description", expanded=False):
-            st.markdown(selected_jd_content)
+            import markdown
+            jd_clean = selected_jd_content.strip()
+            if jd_clean.startswith("```markdown"):
+                jd_clean = jd_clean[11:].strip()
+            elif jd_clean.startswith("```"):
+                jd_clean = jd_clean[3:].strip()
+            if jd_clean.endswith("```"):
+                jd_clean = jd_clean[:-3].strip()
+                
+            html_content = markdown.markdown(jd_clean)
+            st.markdown(f"""
+            <div style="background: #1e1e1e; padding: 30px; border-radius: 8px; color: #f3f4f6; font-family: 'Inter', sans-serif; line-height: 1.6; border: 1px solid #374151;">
+                {html_content}
+            </div>
+            """, unsafe_allow_html=True)
 
         st.markdown("#### Upload CV")
         uploaded_file = st.file_uploader("Must be .pdf or .docx format", type=["pdf", "docx"])
