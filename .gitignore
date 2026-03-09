@@ -1,0 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+env/
+.env/
+.venv/
+ENV/
+
+# Secrets / Configuration
+.env
+
+
+# Caching and Logs
+.cache/
+logs/
+*.log
+.pytest_cache/
+
+# Streamlit
+.streamlit/
+*.webm
+
+# macOS 
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Project-specific temp files (if uploading resumes dynamically)
+temp/
+tmp/
+*.pdf
+*.docx
