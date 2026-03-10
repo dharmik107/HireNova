@@ -1,7 +1,6 @@
 # 🚀 HireNova
 > **Discover elite talent at lightspeed.** 
 
-Demo: 
 
 HireNova is an intelligent, automated AI hiring system built to empower HR professionals and Technical Recruiters. Powered by **CrewAI**, **FastAPI**, and **Streamlit**, HireNova uses multi-agent intelligent workflows to effortlessly generate premium Job Descriptions and evaluate inbound Candidate Resumes against those roles.
 
