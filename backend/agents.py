@@ -65,8 +65,8 @@ def evaluate_candidate(jd: str, resume_text: str) -> dict:
     
     reviewer_agent = Agent(
         role="Senior Technical Recruiter",
-        goal="Evaluate a candidate's resume against a Job Description, calculate a matching percentage, and determine explicitly if they are eligible based on a 70% threshold.",
-        backstory="You are a strict but fair recruiter. You meticulously compare the skills, experience, and qualifications in the resume against the job description requirements to compute an accurate matching score out of 100.",
+        goal="Conduct a high-caliper, context-aware evaluation of the resume against the JD. Distinguish between Internship/Entry-level and Experienced roles and determine eligibility based on an 80% threshold.",
+        backstory="You are an elite, no-nonsense Executive Technical Recruiter. You look beyond keywords to find genuine talent. You are brutally honest but contextually aware—you know that an Intern should be judged on skills and potential, while an SDE with 3 years must be judged on proven professional track record and seniority.",
         verbose=True,
         allow_delegation=False,
         llm=llm
@@ -74,7 +74,7 @@ def evaluate_candidate(jd: str, resume_text: str) -> dict:
 
     scheduler_agent = Agent(
         role="HR Scheduling Coordinator",
-        goal="If a candidate is selected (score >= 70%), generate a polite interview scheduling email for them.",
+        goal="If a candidate is selected (score >= 80%), find their email in the resume and generate a professional interview scheduling email with a clear subject line.",
         backstory="You are a friendly HR scheduling coordinator. You write professional emails to invite candidates to the next round of interviews. If a candidate is NOT eligible, you politely inform them of rejection.",
         verbose=True,
         allow_delegation=False,
@@ -83,9 +83,22 @@ def evaluate_candidate(jd: str, resume_text: str) -> dict:
 
     evaluate_task = Task(
         description=f'''
-Review the following resume against the provided Job Description.
-Calculate a matching score out of 100 based on skills, experience, and qualifications.
-If the score is 70 or higher, output 'Eligible: True'. Otherwise, 'Eligible: False'.
+Review the following resume against the provided Job Description with extreme scrutiny. 
+Calculate a matching score out of 100 based on technical skills, professional experience, and alignment.
+
+CRITICAL INSTRUCTIONS:
+1. **Context-Aware Evaluation**: First, identify if the JD is for an **Internship/Entry-level** role or an **Experienced** role (e.g., SDE with 3+ years).
+2. **Experience Scoring**: 
+   - **For Experienced Roles**: If the JD requires 3+ years and the candidate has <3 years (or 0), deduct 40 points immediately. 0 experience = NOT ELIGIBLE for experienced roles.
+   - **For Internship/Entry-level Roles**: Do NOT penalize for lack of professional years. Instead, evaluate based on technical skills, academic projects, GitHub contributions, and potential.
+3. **Detailed Feedback**: Provide a structured breakdown including:
+   - **Technical Alignment**: How well do they know the specific stack?
+   - **Role Fit**: Does their level (Intern vs Experienced) match the JD requirements?
+   - **Strengths**: What makes them stand out?
+   - **Critical Gaps & Weaknesses**: What are they missing? What are the risks?
+   - **Final Verdict**: A clear justification of why they meet or fail the 80% threshold, explicitly considering the role's seniority level.
+
+If the score is 80 or higher, output 'Eligible: True'. Otherwise, 'Eligible: False'.
 
 Job Description:
 {jd}
@@ -93,18 +106,32 @@ Job Description:
 Resume:
 {resume_text}
 ''',
-        expected_output="A summary of the candidate's strengths/weaknesses compared to the JD, a final percentage score (e.g., 'Score: 75%'), and a conclusion of 'Eligible: True' or 'Eligible: False'.",
+        expected_output="A structured report comprising: Technical Alignment, Experience Depth, Strengths, Critical Gaps, Final Verdict, a Score out of 100 (e.g., 'Score: 85%'), and 'Eligible: True/False'.",
         agent=reviewer_agent
     )
 
     schedule_task = Task(
-        description="""
-Based strictly on the output of the previous evaluation task:
-1. If the candidate is marked as Eligible (score >= 70%), write a short, professional interview invitation email proposing a time for a real person to interview them.
-2. If they are Not Eligible (score < 70%), output a short, polite rejection email instead.
+        description=f"""
+Based on the Technical Recruiter's evaluation, draft a short email to the candidate.
+                
+Rules:
+1. If Score >= 80: 'Selected for Next Round'.
+2. If Score < 80: 'Application Status Update' (Not Selected).
+3. Keep the body extremely short (max 3-4 sentences).
+4. State clearly if they are selected or not.
+5. Provide exactly ONE brief reason for the decision.
+6. Extract the candidate's email from the resume: {resume_text}
+                
+Job Context: {jd}
+                
+Output Format:
+To: [Candidate Email]
+Subject: [Clear Status Subject]
+Body:
+[Concise Body]
 """,
-        expected_output="An email text (either an invitation to interview or a polite rejection).",
-        agent=scheduler_agent
+        agent=scheduler_agent,
+        expected_output="A structured email containing To, Subject, and a short 3-sentence Body."
     )
 
     crew = Crew(
