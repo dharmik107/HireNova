@@ -113,7 +113,6 @@ Resume:
     schedule_task = Task(
         description=f"""
 Based on the Technical Recruiter's evaluation, draft a short email to the candidate.
-                
 Rules:
 1. If Score >= 80: 'Selected for Next Round'.
 2. If Score < 80: 'Application Status Update' (Not Selected).
