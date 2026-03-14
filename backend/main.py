@@ -25,8 +25,14 @@ app.add_middleware(
 def read_root():
     return {"message": "Automated Hiring API is running."}
 
-@app.post("/generate_jd", response_model=JDResponse)
-async def api_generate_jd(request: JobPromptRequest, db: Session = Depends(get_db)):
+from pydantic import BaseModel
+
+class SaveJDRequest(BaseModel):
+    title: str
+    content: str
+
+@app.post("/generate_jd")
+async def api_generate_jd(request: JobPromptRequest):
     try:
         jd_content = generate_jd(request.prompt)
         
@@ -41,13 +47,9 @@ async def api_generate_jd(request: JobPromptRequest, db: Session = Depends(get_d
         
         jd_content = jd_clean
         
-        # Try to extract the title by looking for "**Job Title**:" or similar heading structures
+        # Try to extract the title
         title = "Generated Job Description"
-        
-        # Method 1: Look for explicit "**Job Title**: [Role]"
         title_match_1 = re.search(r'\*\*(?:Job Title|Title)\*\*\s*:\s*(.+)', jd_content, re.IGNORECASE)
-        
-        # Method 2: Look for the first Level 1 or Level 2 markdown heading
         title_match_2 = re.search(r'^(?:#|##)\s+(.+)', jd_content, re.MULTILINE)
         
         if title_match_1:
@@ -55,20 +57,24 @@ async def api_generate_jd(request: JobPromptRequest, db: Session = Depends(get_d
         elif title_match_2:
             title = title_match_2.group(1).strip()
         else:
-            # Method 3: Fallback simply take the first non-empty line
             first_line = jd_content.strip().split("\n")[0]
             if len(first_line) > 3:
                  title = first_line
 
-        # Remove any lingering markdown characters (*, #)
         title = title.replace("*", "").replace("#", "").strip()
 
-        # Save to DB
-        new_jd = JobDescription(title=title, content=jd_content)
+        # Return dict only, DO NOT auto-save to DB
+        return {"title": title, "content": jd_content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/save_jd", response_model=JDResponse)
+def save_jd(request: SaveJDRequest, db: Session = Depends(get_db)):
+    try:
+        new_jd = JobDescription(title=request.title, content=request.content)
         db.add(new_jd)
         db.commit()
         db.refresh(new_jd)
-
         return new_jd
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
