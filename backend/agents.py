@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, LLM
+from crewai.tools import tool
+from duckduckgo_search import DDGS
 
 # Load environment variables
 load_dotenv()
@@ -15,13 +17,69 @@ llm = LLM(
 
 def generate_jd(prompt: str) -> str:
     """Generates a Job Description from a simple prompt using CrewAI."""
-    jd_agent = Agent(
-        role="Senior Executive Recruiter & Employer Branding Specialist",
-        goal="Write an exceptionally high-quality, deeply engaging, and highly professional job description that sounds like it belongs to a top-tier tech company.",
+    
+    # 1. Perform Static Research to avoid LLM tool loops/exhaustion 
+    import wikipedia
+    research_context = ""
+    try:
+        research_context = wikipedia.summary(prompt, sentences=3)
+    except Exception:
+        try:
+            # Fallback for list disambiguations
+            search_results = wikipedia.search(prompt, results=3)
+            if search_results:
+                research_context = wikipedia.summary(search_results[0], sentences=3)
+        except Exception:
+             research_context = "Standard industry qualifications and standard benchmarks apply."
+
+    researcher_agent = Agent(
+        role="Job Role & Industry Analyst",
+        goal="Conduct comprehensive technical research on the job role by using contextual research data directly injected.",
         backstory=(
-            "You are an elite Head of Talent Acquisition with 20 years of experience shaping the Employer Brand for Fortune 500 companies and cutting-edge startups. "
-            "You never write 'simple' or generic descriptions. Instead, you write comprehensive, beautifully formatted, and deeply engaging descriptions that attract elite talent. "
-            "You excel at inferring the nuanced requirements of a role even from a very short prompt, expanding on technical stacks, cultural fit, and real-world responsibilities."
+            "You are an expert HR Data Scientist and Market Analyst. You understand the absolute details of any position. "
+            "You break down titles into actionable technical requirements by reviewing provided industry benchmarks and core expectations."
+        ),
+        verbose=True,
+        allow_delegation=False,
+        llm=llm
+    )
+
+    research_task = Task(
+        description=f'''
+        Analyze the hiring manager's prompt: "{prompt}"
+        
+        Use this **Provided Internet Research context** to verify details:
+        """
+        {research_context}
+        """
+
+        Based on the Context and your knowledge, research and summarize:
+        
+        **CRITICAL STEP**: First determine if this is an **Internship/Entry-level** role OR an **Experienced (e.g., 3+ years)** role. **DO NOT MIX BOTH.**
+
+        0. **Domain Classification**: Determine if the role belongs to **IT/Software**, **Sales/BDE**, **HR**, **Marketing**, or **Finance**. Strictly state: `Domain: [Domain Name]` at the top of your response. If the domain is Non-IT, NEVER include software engineering terms or coding frameworks in the research conclusions.
+
+        1. **Core Responsibilities**: 4-5 key tasks standard for this exact role.
+           - **If Intern**: Focus on developing features under guidance, bug fixes, and learning.
+           - **If Experienced**: Focus on designing scalable architecture, microservices, and system optimization.
+        2. **Technical Stack & Tools**: Standard technologies used. (DO NOT assume Node.js/React unless explicitly mentioned in the prompt. Detech topics fitting the prompt's domain e.g., if GenAI, cover LLMs, RAG, Embeddings, Prompt engineering).
+        3. **Minimum Requirements**: Common experience levels for the role.
+        4. **Duration**: ONLY extract a duration if explicitly mentioned in the prompt (e.g., "6 months"). If not specified, state "Not Specified".
+        5. **Learning Outcomes**: If Intern, itemize 3-4 **high-value, career-accelerating skills**. **OMIT THIS ENTIRELY if it is an experienced role.**
+
+        Expected output is a structural breakdown of these points. DO NOT generate the JD yourself. Just provide the research notes.
+        ''',
+        expected_output="A structured breakdown consisting EXACTLY of either Internship items OR Experienced items, with no mixing of the two.",
+        agent=researcher_agent
+    )
+
+    jd_agent = Agent(
+        role="Senior Executive Recruiter",
+        goal="Write a clean, impactful, and perfectly formatted job description that gets straight to the point.",
+        backstory=(
+            "You are an elite Talent Acquisition Specialist known for your ability to create highly effective, easy-to-read job descriptions. "
+            "You avoid buzzwords, corporate fluff, and dense paragraphs. "
+            "You focus on structural clarity, ensuring that candidates instantly understand the role, responsibilities, and requirements without reading heavy text blocks."
         ),
         verbose=True,
         allow_delegation=False,
@@ -30,35 +88,84 @@ def generate_jd(prompt: str) -> str:
 
     jd_task = Task(
         description=f'''
-        Create a high-quality but concise professional job description based on the following hiring manager's prompt: "{prompt}"
+        Create a concise, structured, and professional job description based on the prompt: "{prompt}" AND the Research Notes provided by the Position Analyst.
 
-        Your output MUST be robust but brief, avoiding bloated text. 
+        STRICT CONSTRAINTS (No Fluff):
+        1. Use the Research Notes to ensure exact accuracy of skills and roles.
+        2. **Do NOT add ANY preamble or postscript**. Start directly with the layout.
+        3. **Deduce Target Seniority & Domain Verbs**: 
+           - **If IT/Software Domain**: Use engineering verbs like "build", "architect", "optimize", "develop".
+           - **If Non-IT Domain (e.g. Sales/BDE, HR)**: Use business verbs like "support lead generation", "assist with market pitching", "manage onboarding". **NEVER** use words like "develop" or "architect" unless explicitly applicable to business processes.
+           - **If Intern**: Phrasing MUST be mentorship-driven (e.g., "assist with", "develop under guidance").
+           - **If Experienced (3+ years)**: Phrasing MUST be delivery and leadership driven (e.g., "drive", "own strategic execution", "optimize"). Avoid entry-level action items.
 
-        STRICT FORMATTING INSTRUCTIONS (Keep sections short and visually separated):
+        EXACT LAYOUT INSTRUCTIONS (Follow this structure strictly):
         1. **Job Title**: The exact role title formatted as an H1 heading (e.g. `# GenAI Intern`).
         2. **Company**: Must be formatted exactly as `**Company:** [Company Name]` on a new line.
         3. **Location**: Must be formatted exactly as `**Location:** [Location]` on a new line.
-        4. **Spacing**: ALWAYS leave a blank line after Company and Location.
-        5. **About Us**: Use `### About Us` as a heading. Then a blank line, then a 1-paragraph summary.
-        6. **The Role**: Use `### The Role` as a heading. Then a blank line, then a 1-paragraph summary.
-        7. **Key Responsibilities**: Use `### Key Responsibilities` as a heading. Provide exactly 4-5 tasks using actual markdown bullet points (`- `) on separate lines.
-        8. **Requirements**: Use `### Requirements` as a heading. Provide exactly 4-5 skills using actual markdown bullet points (`- `) on separate lines.
-        9. **Benefits**: Use `### Benefits` as a heading. List 3-4 top perks using actual markdown bullet points (`- `) on separate lines.
-        10. **How to Apply**: Use `### How to Apply` as a heading. Add a brief instruction for the candidate to submit their resume, followed by a realistic looking email address (e.g. `careers@[company].com`).
+        4. **Duration**: Must be formatted exactly as `**Duration:** [Duration]` on a new line. **CRITICAL: OMIT this line entirely if the Research Notes say "Not Specified".**
+        5. **Spacing**: ALWAYS leave a blank line after headings 1-4.
+        
+        6. **What candidate needs to do**: Use `### What candidate needs to do` as a heading. Then a blank line, then 4-5 bullet points of core tasks tailored strictly to the matched experience level.
+        7. **Skills needed in candidate**: Use `### Skills needed in candidate` as a heading. Provide exactly 4-5 bullet points of requirements.
+        8. **What you will learn**: Use `### What you will learn` as a heading. **CRITICAL: OMIT this section completely if the role is a full-time, experienced, or permanent position (non-internship).** For internships/training only, list 3-4 high-value learning outcomes.
+        9. **How to Apply**: Use `### How to Apply` as a heading. Add brief instructions to submit a resume.
 
-        CRITICAL: Never output large blocks of text. Ensure there is a blank line between every single heading and its content, and between every section. Do NOT use headings for Company and Location.
+        CRITICAL: Never output large blocks of text. Ensure there is a blank line between every single heading and its content. Do NOT use sections like "About Us" or "The Role". Follow this list strictly.
         ''',
         expected_output="A high-quality, concise Markdown string strictly following the requested structure without unnecessary fluff.",
+        context=[research_task],
         agent=jd_agent
     )
 
+    reviewer_agent = Agent(
+        role="HR & Technical Auditor",
+        goal="Audit and enrich the Job Description string to guarantee extreme accuracy against the Hiring Manager prompt domain.",
+        backstory=(
+            "You are an expert HR Quality Auditor. You read over generated job descriptions and ensure technical domain keywords are relevant. "
+            "If the job is for GenAI, you guarantee it includes keywords like LLMs, RAG, VectorDBs, or prompt engineering where applicable. "
+            "You ensure no Node.js or React boilerplate pollutes non-web prompts."
+        ),
+        verbose=True,
+        allow_delegation=False,
+        llm=llm
+    )
+
+    review_task = Task(
+        description=f'''
+        Review the Job Description generated by the Senior Recruiter against the Hiring Manager prompt: "{prompt}".
+        
+        CRITICAL AUDIT:
+        1. Does it properly address the domain area? (e.g., ONLY for strictly GenAI/ML roles should you mention LLMs, RAG, or Vector Databases. For traditional back-office roles like HR Architect, use relevant benchmarks like HRIS, Payroll SaaS, compliance metrics, and NEVER force GenAI keywords unless the prompt explicitly mentions AI). If incorrect boilerplate is present, rewrite natural bullet titles organically.
+        2. Verify complete adherence to the strict EXACT LAYOUT structure guidelines.
+        
+        Output the final audit-verified Job Description without preamble.
+        ''',
+        expected_output="A finalized, polished Markdown Job Description correctly reflecting initial prompt domains without generic boilerplates.",
+        context=[jd_task],
+        agent=reviewer_agent
+    )
+
     crew = Crew(
-        agents=[jd_agent],
-        tasks=[jd_task]
+        agents=[researcher_agent, jd_agent, reviewer_agent],
+        tasks=[research_task, jd_task, review_task]
     )
     
     result = crew.kickoff()
-    return result.raw if hasattr(result, 'raw') else str(result)
+    result_str = result.raw if hasattr(result, 'raw') else str(result)
+    
+    # Post-processing to enforce strict layout omissions
+    import re
+    # Remove Duration line if it contains negative placeholders or guessed "Permanent"
+    result_str = re.sub(r'\*\*Duration:\*\*\s*(Not Specified|None|N/A|Permanent)\b', '', result_str, flags=re.IGNORECASE)
+    
+    # Clean Auditor justification noise often appended by 8B models
+    if "Rewritten Job Description:" in result_str:
+        result_str = result_str.split("Rewritten Job Description:")[-1]
+    elif "Audit Notes:" in result_str:
+        result_str = result_str.split("Audit Notes:")[0]
+        
+    return result_str.strip()
 
 def evaluate_candidate(jd: str, resume_text: str) -> dict:
     """Evaluates a resume against a JD and schedules an interview if applicable."""
@@ -74,7 +181,7 @@ def evaluate_candidate(jd: str, resume_text: str) -> dict:
 
     scheduler_agent = Agent(
         role="HR Scheduling Coordinator",
-        goal="If a candidate is selected (score >= 80%), find their email in the resume and generate a professional interview scheduling email with a clear subject line.",
+        goal="If a candidate is selected (score >= 80%), find their email in the resume and generate a professional interview scheduling email.",
         backstory="You are a friendly HR scheduling coordinator. You write professional emails to invite candidates to the next round of interviews. If a candidate is NOT eligible, you politely inform them of rejection.",
         verbose=True,
         allow_delegation=False,
@@ -83,52 +190,47 @@ def evaluate_candidate(jd: str, resume_text: str) -> dict:
 
     evaluate_task = Task(
         description=f'''
-Review the following resume against the provided Job Description with extreme scrutiny. 
-Calculate a matching score out of 100 based on technical skills, professional experience, and alignment.
+        Review the following resume against the provided Job Description with extreme scrutiny. 
+        Calculate a matching score out of 100 based on technical skills, professional experience, and alignment.
 
-CRITICAL INSTRUCTIONS:
-1. **Context-Aware Evaluation**: First, identify if the JD is for an **Internship/Entry-level** role or an **Experienced** role (e.g., SDE with 3+ years).
-2. **Experience Scoring**: 
-   - **For Experienced Roles**: If the JD requires 3+ years and the candidate has <3 years (or 0), deduct 40 points immediately. 0 experience = NOT ELIGIBLE for experienced roles.
-   - **For Internship/Entry-level Roles**: Do NOT penalize for lack of professional years. Instead, evaluate based on technical skills, academic projects, GitHub contributions, and potential.
-3. **Detailed Feedback**: Provide a structured breakdown including:
-   - **Technical Alignment**: How well do they know the specific stack?
-   - **Role Fit**: Does their level (Intern vs Experienced) match the JD requirements?
-   - **Strengths**: What makes them stand out?
-   - **Critical Gaps & Weaknesses**: What are they missing? What are the risks?
-   - **Final Verdict**: A clear justification of why they meet or fail the 80% threshold, explicitly considering the role's seniority level.
+        CRITICAL INSTRUCTIONS:
+        1. **Context-Aware Evaluation**: First, identify if the JD is for an **Internship/Entry-level** role or an **Experienced** role.
+        2. **Experience Scoring**: 
+           - **For Experienced Roles**: If the JD requires 3+ years and the candidate has <3 years (or 0), deduct points proportionally. 0 experience = NOT ELIGIBLE for experienced roles.
+           - **For Internship/Entry-level Roles**: Do NOT penalize for lack of professional years. Rate based on skills, academic projects, and potential.
+        3. **Detailed Feedback Sections**: Provide a structured breakdown EXACTLY using these Headers:
+           - **Technical Alignment**: How well do they know the specific stack? Comparison of tools.
+           - **Role Fit**: Does their level (Intern vs Experienced) match requirements?
+           - **Strengths**: 3-4 bullet items of what makes them stand out.
+           - **Critical Gaps**: What are they missing? **(CRITICAL: Explicitly specify the direct Reason for Rejection if Score < 75)**.
+           - **Final Verdict**: A clear justification of why they are suited or unsuited for the role, concluding strictly with `Eligible: True/False`. **Do NOT output any numerical score or percentage.**
 
-If the score is 80 or higher, output 'Eligible: True'. Otherwise, 'Eligible: False'.
+        Job Description:
+        {jd}
 
-Job Description:
-{jd}
-
-Resume:
-{resume_text}
-''',
-        expected_output="A structured report comprising: Technical Alignment, Experience Depth, Strengths, Critical Gaps, Final Verdict, a Score out of 100 (e.g., 'Score: 85%'), and 'Eligible: True/False'.",
+        Resume:
+        {resume_text}
+        ''',
+        expected_output="A structured report itemizing Technical Alignment, Role Fit, Strengths, Critical Gaps, and a Final Verdict concluding with Score and Eligible Status.",
         agent=reviewer_agent
     )
 
     schedule_task = Task(
         description=f"""
-Based on the Technical Recruiter's evaluation, draft a short email to the candidate.
-Rules:
-1. If Score >= 80: 'Selected for Next Round'.
-2. If Score < 80: 'Application Status Update' (Not Selected).
-3. Keep the body extremely short (max 3-4 sentences).
-4. State clearly if they are selected or not.
-5. Provide exactly ONE brief reason for the decision.
-6. Extract the candidate's email from the resume: {resume_text}
+        Based on the Technical Recruiter's evaluation, draft a short email to the candidate.
+        Rules:
+        1. If Eligible: True: 'Selected for Next Round'.
+        2. If Eligible: False: 'Application Status Update' (Not Selected).
+        3. Keep the body extremely short (max 3-4 sentences).
+        4. Extract the candidate's email from the resume: {resume_text}
                 
-Job Context: {jd}
-                
-Output Format:
-To: [Candidate Email]
-Subject: [Clear Status Subject]
-Body:
-[Concise Body]
-""",
+        Output Format:
+        To: [Candidate Email]
+        Subject: [Clear Status Subject]
+        Body:
+        [Concise Body]
+        """,
+        context=[evaluate_task],
         agent=scheduler_agent,
         expected_output="A structured email containing To, Subject, and a short 3-sentence Body."
     )
