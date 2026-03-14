@@ -107,6 +107,10 @@ st.markdown("""
 # Initialize session states
 if "jd_text" not in st.session_state:
     st.session_state.jd_text = ""
+if "jd_title" not in st.session_state:
+    st.session_state.jd_title = ""
+if "edit_mode" not in st.session_state:
+    st.session_state.edit_mode = False
 
 def parse_evaluation(text):
     """Parses evaluation result text into structured sections with bullet support."""
@@ -247,22 +251,84 @@ st.markdown("---")
 
 if app_mode == "1. Generate JD":
     st.header("✨ AI Job Description Generator")
-    job_prompt = st.text_area("Prompt:", placeholder="e.g. GenAI intern role at Crovix...", height=150)
+    job_prompt = st.text_area("Prompt:", placeholder="e.g. GenAI Engineer at Crovix, Location is remote....", height=150)
     if st.button("Generate JD 🚀", type="primary"):
         if job_prompt:
             with st.spinner("Writing JD..."):
                 r = requests.post(f"{BACKEND_URL}/generate_jd", json={"prompt": job_prompt})
                 if r.status_code == 200:
-                    st.session_state.jd_text = r.json().get("content", "")
+                    res = r.json()
+                    st.session_state.jd_text = res.get("content", "")
+                    st.session_state.jd_title = res.get("title", "Job Description")
+                    st.session_state.edit_mode = False  # Reset on new generation
                     st.rerun()
         else: st.warning("Enter prompt first.")
 
     if st.session_state.jd_text:
-        st.markdown("### 📄 Generated Job Description")
-        st.markdown(f"<div style='background: #1e1e1e; padding: 30px; border-radius: 12px; border: 1px solid #374151;'>{markdown.markdown(st.session_state.jd_text)}</div>", unsafe_allow_html=True)
+        st.markdown("---")
+        
+        if not st.session_state.edit_mode:
+            st.markdown("### 📄 Generated Job Description")
+            st.caption("💡 **Tip:** Always review and verify this AI-generated description.")
+            st.markdown(f"**📋 Job Title:** `{st.session_state.jd_title}`")
+            st.markdown(f"<div style='background: #1e1e1e; padding: 30px; border-radius: 12px; border: 1px solid #374151;'>{markdown.markdown(st.session_state.jd_text)}</div>", unsafe_allow_html=True)
+            st.markdown("")
+            
+            colE1, colE2 = st.columns([1, 4])
+            if colE1.button("Edit ✏️", type="secondary"):
+                st.session_state.edit_mode = True
+                st.rerun()
+                
+            if colE2.button("Save to Database 💾", type="primary"):
+                with st.spinner("Saving..."):
+                    save_r = requests.post(f"{BACKEND_URL}/save_jd", json={"title": st.session_state.jd_title, "content": st.session_state.jd_text})
+                    if save_r.status_code == 200:
+                        st.success("Saved perfectly!")
+                        st.session_state.jd_text = ""
+                        st.session_state.jd_title = ""
+                        st.balloons()
+                        st.rerun()
+                    else: st.error("Failed to save.")
+        else:
+            st.markdown("### 📄 Edit Job Description")
+            st.caption("💡 **Tip:** Refine the text and save to finalize.")
+            
+            # Editable Input Fields
+            edited_title = st.text_input("📋 Job Title:", value=st.session_state.jd_title)
+            edited_content = st.text_area("📝 Description (Markdown support):", value=st.session_state.jd_text, height=450)
+            
+            col1, col2 = st.columns([1, 4])
+            if col1.button("Save Changes 💾", type="primary"):
+                if edited_title.strip() and edited_content.strip():
+                    with st.spinner("Saving..."):
+                        save_r = requests.post(f"{BACKEND_URL}/save_jd", json={"title": edited_title, "content": edited_content})
+                        if save_r.status_code == 200:
+                            st.success("Saved perfectly!")
+                            st.session_state.jd_text = ""  
+                            st.session_state.jd_title = ""
+                            st.session_state.edit_mode = False
+                            st.rerun()
+                        else: st.error("Failed to save.")
+                else: st.error("Title and Content cannot be empty.")
+            
+            if col2.button("Cancel ❌"):
+                st.session_state.edit_mode = False
+                st.rerun()
 
 elif app_mode == "2. Evaluate CV":
     st.header("🎯 AI Profile Evaluation")
+    
+    # Download Sample Benchmark CV
+    with st.expander("💡 Testing Assets", expanded=True):
+        colD1, colD2 = st.columns([2, 3])
+        colD1.markdown("**Need a CV to test?** Download this ATS-friendly GenAI Intern sample:")
+        try:
+            with open("frontend/sample_cv.pdf", "rb") as f:
+                colD1.download_button("📥 Download Sample CV", data=f, file_name="Sample_GenAI_Intern_CV.pdf", mime="application/pdf")
+        except FileNotFoundError:
+            colD1.error("Sample CV file not found.")
+
+    st.caption("Upload a candidate resume/CV and match it against any stored Job Description.")
     if not saved_jds:
         st.warning("Generate a JD first.")
     else:
@@ -288,7 +354,7 @@ elif app_mode == "2. Evaluate CV":
                     is_eligible = "true" in eval_p['Eligible'].lower()
                     cls = "status-match-eligible" if is_eligible else "status-match-not-eligible"
                     txt = "ELIGIBLE" if is_eligible else "NOT ELIGIBLE"
-                    st.markdown(f"<div class='combined-status {cls}'>{eval_p['Score']} — {txt}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='combined-status {cls}'>{txt}</div>", unsafe_allow_html=True)
                     
                     t1, t2 = st.tabs(["📋 Evaluation Report", "✉️ Draft Email"])
                     with t1:
