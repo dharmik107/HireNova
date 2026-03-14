@@ -13,3 +13,6 @@ requests
 sqlalchemy
 psycopg2-binary
 markdown
+fpdf2>=2.8.2
+wikipedia>=1.4.0
+duckduckgo-search>=6.0.0
