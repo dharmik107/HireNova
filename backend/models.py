@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from sqlalchemy import Column, Integer, String, Text
 from backend.database import Base
+from typing import Optional
 
 # --- SQLAlchemy DB Models ---
 class JobDescription(Base):
@@ -13,6 +14,8 @@ class JobDescription(Base):
 # --- Pydantic Schemas ---
 class JobPromptRequest(BaseModel):
     prompt: str
+    domain: Optional[str] = None
+    seniority: Optional[str] = None
 
 class JDResponse(BaseModel):
     id: int

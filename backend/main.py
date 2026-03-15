@@ -34,7 +34,7 @@ class SaveJDRequest(BaseModel):
 @app.post("/generate_jd")
 async def api_generate_jd(request: JobPromptRequest):
     try:
-        jd_content = generate_jd(request.prompt)
+        jd_content = generate_jd(request.prompt, domain=request.domain, seniority=request.seniority)
         
         # Strip markdown code blocks if the LLM wrapped it
         jd_clean = jd_content.strip()
@@ -48,20 +48,26 @@ async def api_generate_jd(request: JobPromptRequest):
         jd_content = jd_clean
         
         # Try to extract the title
-        title = "Generated Job Description"
-        title_match_1 = re.search(r'\*\*(?:Job Title|Title)\*\*\s*:\s*(.+)', jd_content, re.IGNORECASE)
-        title_match_2 = re.search(r'^(?:#|##)\s+(.+)', jd_content, re.MULTILINE)
+        title = ""
+        title_match_1 = re.search(r'\*\*(?:Job Title|Title)\*\*\s*[:\-]?\s*(.+)', jd_content, re.IGNORECASE)
+        title_match_2 = re.search(r'^(?:#|##)\s*(.+)', jd_content, re.MULTILINE)
         
         if title_match_1:
             title = title_match_1.group(1).strip()
         elif title_match_2:
             title = title_match_2.group(1).strip()
-        else:
-            first_line = jd_content.strip().split("\n")[0]
-            if len(first_line) > 3:
-                 title = first_line
-
+            
         title = title.replace("*", "").replace("#", "").strip()
+
+        # Robust fallback for missing or corrupted title tags (e.g. LLM hallucinates giant text)
+        if not title or len(title) > 60:
+             # Use structured Composite Fallback instead of raw prompt sentences
+             s_part = request.seniority.title() if request.seniority and request.seniority.lower() != "auto-detect" else ""
+             d_part = request.domain.title() if request.domain and request.domain.lower() != "auto-detect" else "Job Description"
+             title = f"{s_part} {d_part}".strip()
+                  
+        if not title:
+             title = "Generated Job Description"
 
         # Return dict only, DO NOT auto-save to DB
         return {"title": title, "content": jd_content}

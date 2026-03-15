@@ -251,11 +251,23 @@ st.markdown("---")
 
 if app_mode == "1. Generate JD":
     st.header("✨ AI Job Description Generator")
-    job_prompt = st.text_area("Prompt:", placeholder="e.g. GenAI Engineer at Crovix, Location is remote....", height=150)
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        domain_sel = st.selectbox("Industry Domain (Cost Saver):", ["Auto-Detect", "Tech", "Marketing", "Finance", "Legal", "Healthcare", "HR", "Sales"])
+    with col_d2:
+        seniority_sel = st.selectbox("Target Seniority (Cost Saver):", ["Auto-Detect", "Intern", "Junior", "Experienced", "Senior", "Director"])
+
+    job_prompt = st.text_area("Hiring Manager Prompt:", placeholder="e.g. GenAI Engineer at Crovix, Location is remote....", height=120)
+    
     if st.button("Generate JD 🚀", type="primary"):
         if job_prompt:
             with st.spinner("Writing JD..."):
-                r = requests.post(f"{BACKEND_URL}/generate_jd", json={"prompt": job_prompt})
+                payload = {
+                    "prompt": job_prompt,
+                    "domain": domain_sel if domain_sel != "Auto-Detect" else None,
+                    "seniority": seniority_sel if seniority_sel != "Auto-Detect" else None
+                }
+                r = requests.post(f"{BACKEND_URL}/generate_jd", json=payload)
                 if r.status_code == 200:
                     res = r.json()
                     st.session_state.jd_text = res.get("content", "")
