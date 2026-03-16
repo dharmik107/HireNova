@@ -98,15 +98,15 @@ def generate_jd(prompt: str, domain: str = None, seniority: str = None) -> str:
        - **If Agentic AI**: Focus on autonomous systems, tool calling, memory management, and workflow agents.
        - **If GenAI**: Focus on LLMs, Prompt engineering, embeddings, and vector databases.
        - **If AI/ML**: Focus on data-preprocessing, regressions, model architectures, and training workflows.
-    3. **No Placeholders**: **NEVER output square brackets like `[...]` or `[Insert ...]`**. Deduce reasonable constants from standard practice (e.g., "Remote", "To be discussed", "XYZ Corp", "Competitive").
+    3. **No Placeholders**: **NEVER output square brackets like `[...]` or `[Insert ...]`**. If any detail (e.g. Company Name, Stipend, Salary, Location) is missing from the Hiring Manager Prompt, **OMIT that line completely**. DO NOT invent data.
     4. **Tone**: Keep it highly professional and engaging.
 
     EXACT LAYOUT INSTRUCTIONS (Follow this structure strictly):
     1. **Job Title**: The exact role title formatted as an H1 heading (e.g. `# GenAI Intern`).
-    2. **Company**: Must be formatted exactly as `**Company:** [Calculated Company Name]` on a new line.
-    3. **Location & Work Mode**: Must be formatted exactly as `**Location & Work Mode:** [Calculated Location] | [Remote/Hybrid/On-site]` on a new line.
-    4. **Duration**: Must be formatted exactly as `**Duration:** [Calculated Duration]` on a new line. **OMIT completely if non-internship.**
-    5. **Stipend**: Must be formatted exactly as `**Stipend:** [Calculated Value]` on a new line. **OMIT completely if non-internship.**
+    2. **Company**: Must be formatted exactly as `**Company:** [Company Name]` on a new line. **OMIT completely if not specified in the Hiring Prompt.**
+    3. **Location & Work Mode**: Must be formatted exactly as `**Location & Work Mode:** [Location] | [Mode]` on a new line. **OMIT completely if not specified.**
+    4. **Duration**: Must be formatted exactly as `**Duration:** [Duration]` on a new line. **OMIT completely if non-internship or not specified.**
+    5. **Stipend**: Must be formatted exactly as `**Stipend:** [Value]` on a new line. **OMIT completely if non-internship or not specified.**
     6. **Spacing**: ALWAYS leave a blank line after headers 1-5.
     
     7. **About the Company**: Use `### About the Company` as a heading. Add 1-2 lines describing general domain setup.
@@ -126,7 +126,7 @@ def generate_jd(prompt: str, domain: str = None, seniority: str = None) -> str:
 
     # Post-processing to enforce strict layout omissions
     import re
-    result_str = re.sub(r'\*\*(Duration|Stipend):\*\*\s*(Not Specified|None|N/A|Permanent|Unspecified)\b', '', result_str, flags=re.IGNORECASE)
+    result_str = re.sub(r'\*\*(Duration|Stipend|Company|Location & Work Mode):\*\*\s*(?:Not Specified|None|N/A|Permanent|Unspecified|XYZ Corp|XYZ|To be discussed|Competitive)\b.*?(?:\n|$)', '', result_str, flags=re.IGNORECASE)
     
     # Direct Guard: Omit completely for non-internships
     if "intern" not in seniority.lower():
