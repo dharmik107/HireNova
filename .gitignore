@@ -36,3 +36,4 @@ temp/
 tmp/
 *.pdf
 *.docx
+!frontend/sample_cv.pdf
