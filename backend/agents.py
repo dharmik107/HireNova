@@ -105,8 +105,8 @@ def generate_jd(prompt: str, domain: str = None, seniority: str = None) -> str:
     1. **Job Title**: The exact role title formatted as an H1 heading (e.g. `# GenAI Intern`).
     2. **Company**: Must be formatted exactly as `**Company:** [Calculated Company Name]` on a new line.
     3. **Location & Work Mode**: Must be formatted exactly as `**Location & Work Mode:** [Calculated Location] | [Remote/Hybrid/On-site]` on a new line.
-    4. **Duration**: Must be formatted exactly as `**Duration:** [Calculated Duration]` on a new line.
-    5. **Stipend**: Must be formatted exactly as `**Stipend:** [Calculated Value]` on a new line.
+    4. **Duration**: Must be formatted exactly as `**Duration:** [Calculated Duration]` on a new line. **OMIT completely if non-internship.**
+    5. **Stipend**: Must be formatted exactly as `**Stipend:** [Calculated Value]` on a new line. **OMIT completely if non-internship.**
     6. **Spacing**: ALWAYS leave a blank line after headers 1-5.
     
     7. **About the Company**: Use `### About the Company` as a heading. Add 1-2 lines describing general domain setup.
@@ -127,6 +127,10 @@ def generate_jd(prompt: str, domain: str = None, seniority: str = None) -> str:
     # Post-processing to enforce strict layout omissions
     import re
     result_str = re.sub(r'\*\*(Duration|Stipend):\*\*\s*(Not Specified|None|N/A|Permanent|Unspecified)\b', '', result_str, flags=re.IGNORECASE)
+    
+    # Direct Guard: Omit completely for non-internships
+    if "intern" not in seniority.lower():
+        result_str = re.sub(r'\*\*(Duration|Stipend):\*\*.*?(?:\n|$)', '', result_str, flags=re.IGNORECASE)
     
     return result_str.strip()
 
