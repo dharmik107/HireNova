@@ -1,6 +1,8 @@
 # 🚀 HireNova
 > **Discover elite talent at lightspeed.** 
 
+Live Demo : https://hirenova.streamlit.app
+
 [![HireNova Demo](https://img.shields.io/badge/Watch-Project%20Demo-blue?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/posts/dharmik-pansuriya_ai-recruitment-hiringautomation-activity-7436922467119566850-jkQU)
 
 HireNova is an intelligent, automated AI hiring system built to empower HR professionals and Technical Recruiters. Powered by **CrewAI**, **FastAPI**, and **Streamlit**, HireNova uses multi-agent intelligent workflows to effortlessly generate premium Job Descriptions and evaluate inbound Candidate Resumes against those roles.
